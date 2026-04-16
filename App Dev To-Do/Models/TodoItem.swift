@@ -40,7 +40,7 @@ struct TodoItem: Identifiable, Codable {
 
 extension TodoItem {
     /// Convert to Markdown checkbox format
-    func toMarkdown() -> String {
+    nonisolated func toMarkdown() -> String {
         let checkbox = isCompleted ? "[x]" : "[ ]"
         let dateStr = createdAt.formatted(date: .abbreviated, time: .omitted)
         let priorityStr = priority.map { " [\($0.rawValue)]" } ?? ""
@@ -48,7 +48,7 @@ extension TodoItem {
     }
     
     /// Create a TodoItem from a Markdown line
-    static func fromMarkdown(_ line: String) -> TodoItem? {
+    nonisolated static func fromMarkdown(_ line: String) -> TodoItem? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard trimmed.hasPrefix("- [") else { return nil }
         
