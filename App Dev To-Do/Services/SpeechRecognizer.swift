@@ -76,8 +76,8 @@ class SpeechRecognizer: NSObject, ObservableObject {
             return .authorized
         }
         
-        // If either is not determined, return not determined
-        if speechStatus == .notDetermined || audioStatus == .notDetermined {
+        // If either is not determined/undetermined, return not determined
+        if speechStatus == .notDetermined || audioStatus == .undetermined {
             return .notDetermined
         }
         
