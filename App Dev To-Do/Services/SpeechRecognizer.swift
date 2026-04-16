@@ -15,6 +15,7 @@ enum SpeechRecognitionError: Error, LocalizedError {
     case recognitionFailed(Error)
     case audioEngineFailed(Error)
     case noSpeechDetected
+    case permissionDenied
     
     var errorDescription: String? {
         switch self {
@@ -26,8 +27,18 @@ enum SpeechRecognitionError: Error, LocalizedError {
             return "Audio engine failed: \(error.localizedDescription)"
         case .noSpeechDetected:
             return "No speech detected. Please try again."
+        case .permissionDenied:
+            return "Microphone and speech recognition access are required for voice input."
         }
     }
+}
+
+/// Enum representing the authorization state for speech recognition
+enum SpeechAuthorizationState {
+    case unknown
+    case authorized
+    case denied
+    case notDetermined
 }
 
 /// Manages speech recognition for voice input
@@ -50,20 +61,57 @@ class SpeechRecognizer: NSObject, ObservableObject {
     
     // MARK: - Permissions
     
-    /// Request necessary permissions for speech recognition
-    static func requestAuthorization() async -> Bool {
-        // Request speech recognition permission
-        await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status == .authorized)
-            }
+    /// Get the current authorization state for both speech and microphone
+    static func getAuthorizationState() -> SpeechAuthorizationState {
+        let speechStatus = SFSpeechRecognizer.authorizationStatus()
+        let audioStatus = AVAudioApplication.shared.recordPermission
+        
+        // If either is denied, return denied
+        if speechStatus == .denied || audioStatus == .denied {
+            return .denied
         }
+        
+        // If both are authorized, return authorized
+        if speechStatus == .authorized && audioStatus == .granted {
+            return .authorized
+        }
+        
+        // If either is not determined, return not determined
+        if speechStatus == .notDetermined || audioStatus == .notDetermined {
+            return .notDetermined
+        }
+        
+        return .unknown
     }
     
     /// Check if all required permissions are granted
     static func checkAuthorization() async -> Bool {
         let speechAuthorized = SFSpeechRecognizer.authorizationStatus() == .authorized
         let audioAuthorized = AVAudioApplication.shared.recordPermission == .granted
+        return speechAuthorized && audioAuthorized
+    }
+    
+    /// Request microphone permission
+    static func requestMicrophonePermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+    
+    /// Request necessary permissions for speech recognition
+    static func requestAuthorization() async -> Bool {
+        // Request speech recognition permission
+        let speechAuthorized = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status == .authorized)
+            }
+        }
+        
+        // Request microphone permission
+        let audioAuthorized = await requestMicrophonePermission()
+        
         return speechAuthorized && audioAuthorized
     }
     

@@ -21,6 +21,8 @@ class TodoVM: ObservableObject {
     @Published var showSuccess = false
     @Published var successMessage = ""
     @Published var useVoiceInput = false
+    @Published var showPermissionDenied = false
+    @Published var showPermissionRequest = false
     
     private let speechRecognizer = SpeechRecognizer()
     
@@ -72,25 +74,86 @@ class TodoVM: ObservableObject {
     // MARK: - Voice Input
     
     func toggleVoiceInput() {
-        useVoiceInput.toggle()
+        // Check authorization state first
+        let authState = SpeechRecognizer.getAuthorizationState()
         
-        if useVoiceInput {
-            Task {
-                do {
-                    try await speechRecognizer.startListening()
-                } catch {
-                    errorMessage = error.localizedDescription
-                    showError = true
-                    useVoiceInput = false
-                }
+        switch authState {
+        case .authorized:
+            // Already authorized, proceed with voice input
+            useVoiceInput.toggle()
+            if useVoiceInput {
+                startListening()
+            } else {
+                stopVoiceInputAndCaptureText()
             }
-        } else {
-            speechRecognizer.stopListening()
-            // Move transcribed text to input field
-            if !speechRecognizer.transcribedText.isEmpty {
-                newTodoText = speechRecognizer.transcribedText
-                speechRecognizer.clearTranscription()
+            
+        case .notDetermined:
+            // Show permission request dialog
+            showPermissionRequest = true
+            
+        case .denied:
+            // Show permission denied dialog with Settings option
+            showPermissionDenied = true
+            
+        case .unknown:
+            errorMessage = "Unable to determine speech recognition permissions."
+            showError = true
+        }
+    }
+    
+    /// Called when user confirms they want to grant permission
+    func requestSpeechPermission() {
+        showPermissionRequest = false
+        
+        Task {
+            let granted = await SpeechRecognizer.requestAuthorization()
+            if granted {
+                // Permission granted, start voice input
+                useVoiceInput = true
+                startListening()
+            } else {
+                // Permission denied
+                showPermissionDenied = true
             }
+        }
+    }
+    
+    /// Cancel permission request
+    func cancelPermissionRequest() {
+        showPermissionRequest = false
+    }
+    
+    /// Open Settings app to allow user to enable permissions
+    func openSettings() {
+        showPermissionDenied = false
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+    
+    /// Dismiss permission denied dialog
+    func dismissPermissionDenied() {
+        showPermissionDenied = false
+    }
+    
+    private func startListening() {
+        Task {
+            do {
+                try await speechRecognizer.startListening()
+            } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+                useVoiceInput = false
+            }
+        }
+    }
+    
+    private func stopVoiceInputAndCaptureText() {
+        speechRecognizer.stopListening()
+        // Move transcribed text to input field
+        if !speechRecognizer.transcribedText.isEmpty {
+            newTodoText = speechRecognizer.transcribedText
+            speechRecognizer.clearTranscription()
         }
     }
     

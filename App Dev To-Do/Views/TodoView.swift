@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct TodoView: View {
     @StateObject private var viewModel = TodoVM()
@@ -35,6 +36,28 @@ struct TodoView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.successMessage)
+        }
+        // Permission request dialog - shown before system prompt
+        .alert("Enable Voice Input?", isPresented: $viewModel.showPermissionRequest) {
+            Button("Not Now", role: .cancel) {
+                viewModel.cancelPermissionRequest()
+            }
+            Button("Enable") {
+                viewModel.requestSpeechPermission()
+            }
+        } message: {
+            Text("Voice input requires access to:\n\n• Microphone - to record your voice\n• Speech Recognition - to convert speech to text\n\nThese are used only when you tap the microphone button.")
+        }
+        // Permission denied dialog - shown when access is denied with option to open Settings
+        .alert("Voice Input Disabled", isPresented: $viewModel.showPermissionDenied) {
+            Button("Cancel", role: .cancel) {
+                viewModel.dismissPermissionDenied()
+            }
+            Button("Open Settings") {
+                viewModel.openSettings()
+            }
+        } message: {
+            Text("Voice input requires microphone and speech recognition access. Please enable these in Settings.")
         }
     }
     
