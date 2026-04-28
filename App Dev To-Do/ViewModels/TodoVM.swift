@@ -27,12 +27,17 @@ class TodoVM: ObservableObject {
     @Published var showCompletedTasks = false
     
     private let speechRecognizer = SpeechRecognizer()
+    private var recentlyCompletedIds: Set<UUID> = []
+    private var hideTask: Task<Void, Never>?
     
     var visibleItems: [TodoItem] {
         if showCompletedTasks {
             return todoFile.items
         }
-        return todoFile.items.filter { !$0.isCompleted }
+        // Show items that are either pending OR recently completed (for visual feedback)
+        return todoFile.items.filter { item in
+            !item.isCompleted || recentlyCompletedIds.contains(item.id)
+        }
     }
     
     var transcribedText: String {
@@ -176,7 +181,27 @@ class TodoVM: ObservableObject {
     func toggleTodoItem(_ item: TodoItem) {
         guard let index = todoFile.items.firstIndex(where: { $0.id == item.id }) else { return }
         
-        todoFile.items[index].isCompleted.toggle()
+        let newCompletedState = !todoFile.items[index].isCompleted
+        todoFile.items[index].isCompleted = newCompletedState
+        
+        // If marking as complete and we're not showing completed tasks, delay the hide
+        if newCompletedState && !showCompletedTasks {
+            recentlyCompletedIds.insert(item.id)
+            
+            // Cancel any existing hide task
+            hideTask?.cancel()
+            
+            // Schedule removal from visible list after delay
+            hideTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
+                await MainActor.run {
+                    self?.recentlyCompletedIds.remove(item.id)
+                }
+            }
+        } else if !newCompletedState {
+            // If un-completing, remove from recently completed set
+            recentlyCompletedIds.remove(item.id)
+        }
         
         // Save the updated todo file
         saveTodoFile()
