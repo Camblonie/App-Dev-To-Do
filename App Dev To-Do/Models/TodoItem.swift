@@ -8,7 +8,8 @@
 import Foundation
 
 /// Represents a single task in a TODO.md file
-struct TodoItem: Identifiable, Codable {
+@preconcurrency
+struct TodoItem: Identifiable, Codable, Sendable {
     let id: UUID
     var text: String
     var isCompleted: Bool
@@ -29,7 +30,7 @@ struct TodoItem: Identifiable, Codable {
         self.priority = priority
     }
     
-    enum Priority: String, Codable, CaseIterable {
+    enum Priority: String, Codable, CaseIterable, Sendable {
         case low = "Low"
         case medium = "Medium"
         case high = "High"
@@ -78,7 +79,8 @@ extension TodoItem {
 // MARK: - TodoFile Container
 
 /// Represents the entire TODO.md file content
-struct TodoFile: Codable {
+@preconcurrency
+struct TodoFile: Codable, Sendable {
     var items: [TodoItem]
     var header: String
     
