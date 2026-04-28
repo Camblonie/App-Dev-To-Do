@@ -137,17 +137,9 @@ struct TextInputView: View {
     @ObservedObject var viewModel: TodoVM
     
     var body: some View {
-        HStack(spacing: 12) {
-            TextField("Type your to-do...", text: $viewModel.newTodoText, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...3)
-            
-            Button(action: { viewModel.toggleVoiceInput() }) {
-                Image(systemName: "mic.fill")
-                    .font(.title2)
-                    .foregroundStyle(.blue)
-            }
-        }
+        TextField("Type your to-do...", text: $viewModel.newTodoText, axis: .vertical)
+            .textFieldStyle(.roundedBorder)
+            .lineLimit(1...3)
     }
 }
 
