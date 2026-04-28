@@ -6,3 +6,4 @@
 - [ ] Create a short pause between when the user deletes a task and it becoming hidden - added Apr 28, 2026
 - [ ] There is an error occurring [Medium] - added Apr 28, 2026
 - [ ] Is there a delay [Medium] - added Apr 28, 2026
+- [ ] Try - added Apr 28, 2026
