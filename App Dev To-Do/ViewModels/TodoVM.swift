@@ -25,6 +25,8 @@ class TodoVM: ObservableObject {
     @Published var showPermissionDenied = false
     @Published var showPermissionRequest = false
     @Published var showCompletedTasks = false
+    @Published var editingItemId: UUID?
+    @Published var editText = ""
     
     private let speechRecognizer = SpeechRecognizer()
     private var recentlyCompletedIds: Set<UUID> = []
@@ -34,7 +36,7 @@ class TodoVM: ObservableObject {
         if showCompletedTasks {
             return todoFile.items
         }
-        // Show items that are either pending OR recently completed (for visual feedback)
+        // Show items that are either pending OR not completed
         return todoFile.items.filter { item in
             !item.isCompleted || recentlyCompletedIds.contains(item.id)
         }
@@ -204,6 +206,38 @@ class TodoVM: ObservableObject {
         }
         
         // Save the updated todo file
+        saveTodoFile()
+    }
+    
+    // MARK: - Edit Todo Item
+    
+    func startEditing(_ item: TodoItem) {
+        editingItemId = item.id
+        editText = item.text
+    }
+    
+    func cancelEditing() {
+        editingItemId = nil
+        editText = ""
+    }
+    
+    func saveEdit() {
+        guard let editingId = editingItemId else { return }
+        guard let index = todoFile.items.firstIndex(where: { $0.id == editingId }) else {
+            cancelEditing()
+            return
+        }
+        
+        let trimmedText = editText.trimmingCharacters(in: .whitespaces)
+        guard !trimmedText.isEmpty else {
+            cancelEditing()
+            return
+        }
+        
+        todoFile.items[index].text = trimmedText
+        editingItemId = nil
+        editText = ""
+        
         saveTodoFile()
     }
     

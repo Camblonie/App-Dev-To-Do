@@ -81,7 +81,7 @@ struct TodoView: View {
                     }
                     
                     ForEach(viewModel.visibleItems) { item in
-                        TodoItemRow(item: item, onToggle: {
+                        TodoItemRow(viewModel: viewModel, item: item, onToggle: {
                             viewModel.toggleTodoItem(item)
                         })
                     }
@@ -220,23 +220,58 @@ struct PrioritySelector: View {
 // MARK: - Todo Item Row
 
 struct TodoItemRow: View {
+    @ObservedObject var viewModel: TodoVM
     let item: TodoItem
     let onToggle: () -> Void
     
+    var isEditing: Bool {
+        viewModel.editingItemId == item.id
+    }
+    
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Checkbox - tappable
+            // Checkbox - tappable (disabled during edit)
             Button(action: onToggle) {
                 Image(systemName: item.isCompleted ? "checkmark.square.fill" : "square")
                     .foregroundStyle(item.isCompleted ? .green : .secondary)
                     .font(.title3)
             }
             .buttonStyle(.plain)
+            .disabled(isEditing)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.text)
-                    .strikethrough(item.isCompleted)
-                    .foregroundStyle(item.isCompleted ? .secondary : .primary)
+                if isEditing {
+                    // Edit mode: text field with save/cancel buttons
+                    HStack(spacing: 8) {
+                        TextField("Edit task...", text: $viewModel.editText, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(1...2)
+                        
+                        Button(action: { viewModel.saveEdit() }) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.title3)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: { viewModel.cancelEditing() }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                                .font(.title3)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } else {
+                    // View mode: tap to edit
+                    Text(item.text)
+                        .strikethrough(item.isCompleted)
+                        .foregroundStyle(item.isCompleted ? .secondary : .primary)
+                        .onTapGesture {
+                            if !item.isCompleted {
+                                viewModel.startEditing(item)
+                            }
+                        }
+                }
                 
                 HStack(spacing: 8) {
                     if let priority = item.priority {
