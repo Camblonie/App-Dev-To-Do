@@ -75,19 +75,28 @@ class RepositoryListVM: ObservableObject {
             // Fetch from GitHub API
             let githubRepos = try await GitHubService.shared.fetchRepositories()
             
-            // Convert to local models and check for TODO.md
+            // Convert to local models and check for TODO.md and pending count
             var localRepos: [Repository] = []
             for githubRepo in githubRepos {
                 var repo = githubRepo.toLocalModel()
                 
-                // Check if TODO.md exists (don't block on this)
+                // Check if TODO.md exists and fetch pending count
                 do {
                     repo.hasTodoFile = try await GitHubService.shared.todoFileExists(
                         owner: repo.owner,
                         repo: repo.name
                     )
+                    
+                    // If TODO.md exists, fetch pending count
+                    if repo.hasTodoFile == true {
+                        repo.pendingTodoCount = try await GitHubService.shared.fetchPendingTodoCount(
+                            owner: repo.owner,
+                            repo: repo.name
+                        )
+                    }
                 } catch {
                     repo.hasTodoFile = nil
+                    repo.pendingTodoCount = nil
                 }
                 
                 localRepos.append(repo)

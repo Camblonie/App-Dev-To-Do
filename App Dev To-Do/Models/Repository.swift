@@ -19,6 +19,7 @@ final class Repository {
     var lastUpdated: Date
     var lastSynced: Date
     var hasTodoFile: Bool?
+    var pendingTodoCount: Int?
     
     init(
         id: Int,
@@ -29,7 +30,8 @@ final class Repository {
         isPrivate: Bool,
         lastUpdated: Date,
         lastSynced: Date = Date(),
-        hasTodoFile: Bool? = nil
+        hasTodoFile: Bool? = nil,
+        pendingTodoCount: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -40,6 +42,7 @@ final class Repository {
         self.lastUpdated = lastUpdated
         self.lastSynced = lastSynced
         self.hasTodoFile = hasTodoFile
+        self.pendingTodoCount = pendingTodoCount
     }
     
     /// Computed property for full repo identifier (owner/name)

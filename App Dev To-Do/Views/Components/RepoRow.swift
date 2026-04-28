@@ -51,8 +51,19 @@ struct RepoRow: View {
             
             Spacer()
             
-            // Last updated
-            VStack(alignment: .trailing) {
+            // Pending todo count badge and last updated
+            VStack(alignment: .trailing, spacing: 4) {
+                // Show pending count badge if TODO.md exists
+                if let count = repository.pendingTodoCount {
+                    Text("\(count)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(count == 0 ? Color.green : Color.orange)
+                        .clipShape(Circle())
+                }
+                
                 Text(repository.lastUpdated, style: .relative)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -71,6 +82,7 @@ struct RepoRow: View {
         htmlUrl: "https://github.com/scottcampbell/MyApp",
         isPrivate: false,
         lastUpdated: Date(),
-        hasTodoFile: true
+        hasTodoFile: true,
+        pendingTodoCount: 3
     ))
 }

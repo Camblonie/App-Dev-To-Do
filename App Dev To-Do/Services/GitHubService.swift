@@ -227,4 +227,11 @@ actor GitHubService {
             return false
         }
     }
+    
+    /// Fetch the count of pending (non-completed) to-do items
+    func fetchPendingTodoCount(owner: String, repo: String) async throws -> Int {
+        let (content, _) = try await fetchTodoFile(owner: owner, repo: repo)
+        let todoFile = TodoFile.fromMarkdown(content)
+        return todoFile.items.filter { !$0.isCompleted }.count
+    }
 }
