@@ -24,8 +24,16 @@ class TodoVM: ObservableObject {
     @Published var useVoiceInput = false
     @Published var showPermissionDenied = false
     @Published var showPermissionRequest = false
+    @Published var showCompletedTasks = false
     
     private let speechRecognizer = SpeechRecognizer()
+    
+    var visibleItems: [TodoItem] {
+        if showCompletedTasks {
+            return todoFile.items
+        }
+        return todoFile.items.filter { !$0.isCompleted }
+    }
     
     var transcribedText: String {
         speechRecognizer.transcribedText
@@ -161,6 +169,43 @@ class TodoVM: ObservableObject {
     func stopVoiceInput() {
         speechRecognizer.stopListening()
         useVoiceInput = false
+    }
+    
+    // MARK: - Toggle Completion
+    
+    func toggleTodoItem(_ item: TodoItem) {
+        guard let index = todoFile.items.firstIndex(where: { $0.id == item.id }) else { return }
+        
+        todoFile.items[index].isCompleted.toggle()
+        
+        // Save the updated todo file
+        saveTodoFile()
+    }
+    
+    private func saveTodoFile() {
+        guard let repo = repository else { return }
+        
+        Task {
+            do {
+                // Fetch current file SHA first (needed for update)
+                let (_, sha) = try await GitHubService.shared.fetchTodoFile(
+                    owner: repo.owner,
+                    repo: repo.name
+                )
+                
+                // Save updated content
+                let content = todoFile.toMarkdown()
+                try await GitHubService.shared.saveTodoFile(
+                    owner: repo.owner,
+                    repo: repo.name,
+                    content: content,
+                    sha: sha
+                )
+            } catch {
+                errorMessage = "Failed to save changes: \(error.localizedDescription)"
+                showError = true
+            }
+        }
     }
     
     // MARK: - Adding To-Dos

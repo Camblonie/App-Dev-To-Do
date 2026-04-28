@@ -73,8 +73,17 @@ struct TodoView: View {
                 } else if viewModel.todoFile.items.isEmpty {
                     EmptyTodoState()
                 } else {
-                    ForEach(viewModel.todoFile.items) { item in
-                        TodoItemRow(item: item)
+                    // Toggle for showing/hiding completed tasks
+                    if viewModel.todoFile.items.contains(where: { $0.isCompleted }) {
+                        Toggle("Show Completed", isOn: $viewModel.showCompletedTasks)
+                            .font(.subheadline)
+                            .padding(.bottom, 8)
+                    }
+                    
+                    ForEach(viewModel.visibleItems) { item in
+                        TodoItemRow(item: item, onToggle: {
+                            viewModel.toggleTodoItem(item)
+                        })
                     }
                 }
             }
@@ -220,13 +229,17 @@ struct PrioritySelector: View {
 
 struct TodoItemRow: View {
     let item: TodoItem
+    let onToggle: () -> Void
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Checkbox
-            Image(systemName: item.isCompleted ? "checkmark.square.fill" : "square")
-                .foregroundStyle(item.isCompleted ? .green : .secondary)
-                .font(.title3)
+            // Checkbox - tappable
+            Button(action: onToggle) {
+                Image(systemName: item.isCompleted ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(item.isCompleted ? .green : .secondary)
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.text)
