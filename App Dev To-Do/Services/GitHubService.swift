@@ -151,7 +151,7 @@ actor GitHubService {
     }
     
     /// Create or update TODO.md file in a repository
-    func saveTodoFile(owner: String, repo: String, content: String, sha: String? = nil) async throws {
+    func saveTodoFile(owner: String, repo: String, content: String, sha: String? = nil, retryCount: Int = 1) async throws {
         let encodedPath = "TODO.md".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
         let url = URL(string: "\(baseURL)/repos/\(owner)/\(repo)/contents/\(encodedPath)")!
         
@@ -186,6 +186,26 @@ actor GitHubService {
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw GitHubError.invalidResponse
+        }
+        
+        // Handle SHA conflict (409) by retrying with fresh SHA
+        if httpResponse.statusCode == 409 && retryCount > 0 {
+            // Fetch latest file to get new SHA
+            let (latestContent, latestSha) = try await fetchTodoFile(owner: owner, repo: repo)
+            
+            // Merge our content with latest: re-parse and append any new items
+            var latestTodoFile = TodoFile.fromMarkdown(latestContent)
+            let currentTodoFile = TodoFile.fromMarkdown(content)
+            
+            // Add any items from current that don't exist in latest (by ID)
+            let existingIds = Set(latestTodoFile.items.map { $0.id })
+            let newItems = currentTodoFile.items.filter { !existingIds.contains($0.id) }
+            latestTodoFile.items.append(contentsOf: newItems)
+            
+            // Retry with merged content and fresh SHA
+            let mergedContent = latestTodoFile.toMarkdown()
+            try await saveTodoFile(owner: owner, repo: repo, content: mergedContent, sha: latestSha, retryCount: retryCount - 1)
+            return
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
