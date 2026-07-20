@@ -67,12 +67,16 @@ class TodoVM: ObservableObject {
     // MARK: - Setup
     
     func setRepository(_ repo: Repository) {
-        let isSameRepo = repository?.id == repo.id
+        let previousRepoId = repository?.id
         self.repository = repo
         
-        // If we're re-entering the same repo while changes are still syncing,
-        // keep the local pending state so completed items stay visible.
-        if isSameRepo && !syncingItemIds.isEmpty {
+        let isSameRepo = previousRepoId == repo.id
+        
+        // If we're re-entering a repo we already know about, keep the local
+        // todoFile as the source of truth. Re-fetching from GitHub right after
+        // a local add or toggle can hit a stale read replica and temporarily
+        // hide the user's changes.
+        if isSameRepo && (lastKnownFileSha != nil || !syncingItemIds.isEmpty) {
             return
         }
         
@@ -93,6 +97,16 @@ class TodoVM: ObservableObject {
                     owner: repo.owner,
                     repo: repo.name
                 )
+                
+                // If a newer SHA is already known, this fetch raced against a local
+                // save and the returned content may be a stale read replica. Keep
+                // the local todoFile as the source of truth.
+                if let knownSha = lastKnownFileSha, knownSha != sha {
+                    updateRepoCounters()
+                    isLoading = false
+                    return
+                }
+                
                 todoFile = TodoFile.fromMarkdown(content)
                 lastKnownFileSha = sha
             } catch GitHubError.fileNotFound {
