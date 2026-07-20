@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Windsurf
+.windsurf/
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+
+# Build artifacts
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+Package.resolved
