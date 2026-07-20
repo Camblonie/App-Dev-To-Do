@@ -32,8 +32,6 @@ class TodoVM: ObservableObject {
     @Published var syncingItemIds: Set<UUID> = []
     
     private let speechRecognizer = SpeechRecognizer()
-    private var recentlyCompletedIds: Set<UUID> = []
-    private var hideTask: Task<Void, Never>?
     
     // Serial background sync queue so GitHub writes do not overlap
     private var syncTask: Task<Void, Never>?
@@ -46,9 +44,10 @@ class TodoVM: ObservableObject {
         if showCompletedTasks {
             return todoFile.items
         }
-        // Show items that are either pending OR not completed
+        // Keep completed items visible while they are still being synced.
+        // They disappear only after the server has confirmed the change.
         return todoFile.items.filter { item in
-            !item.isCompleted || recentlyCompletedIds.contains(item.id)
+            !item.isCompleted || isItemSyncing(item)
         }
     }
     
@@ -68,7 +67,15 @@ class TodoVM: ObservableObject {
     // MARK: - Setup
     
     func setRepository(_ repo: Repository) {
+        let isSameRepo = repository?.id == repo.id
         self.repository = repo
+        
+        // If we're re-entering the same repo while changes are still syncing,
+        // keep the local pending state so completed items stay visible.
+        if isSameRepo && !syncingItemIds.isEmpty {
+            return
+        }
+        
         loadTodoFile()
     }
     
@@ -202,29 +209,10 @@ class TodoVM: ObservableObject {
     func toggleTodoItem(_ item: TodoItem) {
         guard let index = todoFile.items.firstIndex(where: { $0.id == item.id }) else { return }
         
-        let newCompletedState = !todoFile.items[index].isCompleted
-        todoFile.items[index].isCompleted = newCompletedState
+        todoFile.items[index].isCompleted.toggle()
         
-        // If marking as complete and we're not showing completed tasks, delay the hide
-        if newCompletedState && !showCompletedTasks {
-            recentlyCompletedIds.insert(item.id)
-            
-            // Cancel any existing hide task
-            hideTask?.cancel()
-            
-            // Schedule removal from visible list after delay
-            hideTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
-                await MainActor.run {
-                    self?.recentlyCompletedIds.remove(item.id)
-                }
-            }
-        } else if !newCompletedState {
-            // If un-completing, remove from recently completed set
-            recentlyCompletedIds.remove(item.id)
-        }
-        
-        // Update the UI and counters immediately, then sync in the background
+        // Update the UI and counters immediately, then sync in the background.
+        // Completed items stay visible until the sync is confirmed.
         updateRepoCounters()
         scheduleSync(for: Set([item.id]))
     }

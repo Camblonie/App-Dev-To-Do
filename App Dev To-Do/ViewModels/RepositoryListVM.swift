@@ -20,6 +20,9 @@ class RepositoryListVM: ObservableObject {
     
     private var modelContext: ModelContext?
     
+    // Keep one TodoVM per repo so pending sync state survives navigation.
+    private var todoViewModels: [Int: TodoVM] = [:]
+    
     var filteredRepositories: [Repository] {
         if searchText.isEmpty {
             return repositories
@@ -137,5 +140,18 @@ class RepositoryListVM: ObservableObject {
     
     func selectRepository(_ repo: Repository) {
         AppSettings.shared.lastSelectedRepo = (repo.owner, repo.name)
+    }
+    
+    // MARK: - Todo View Model Cache
+    
+    /// Returns a cached TodoVM for the repository, creating one if needed.
+    /// This keeps pending sync state alive while the user navigates back and forth.
+    func todoViewModel(for repository: Repository) -> TodoVM {
+        if let vm = todoViewModels[repository.id] {
+            return vm
+        }
+        let vm = TodoVM()
+        todoViewModels[repository.id] = vm
+        return vm
     }
 }

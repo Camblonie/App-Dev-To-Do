@@ -9,8 +9,13 @@ import SwiftUI
 import UIKit
 
 struct TodoView: View {
-    @StateObject private var viewModel = TodoVM()
+    @ObservedObject var viewModel: TodoVM
     let repository: Repository
+    
+    init(viewModel: TodoVM, repository: Repository) {
+        _viewModel = ObservedObject(wrappedValue: viewModel)
+        self.repository = repository
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -339,14 +344,17 @@ struct EmptyTodoState: View {
 
 #Preview {
     NavigationStack {
-        TodoView(repository: Repository(
-            id: 1,
-            name: "MyApp",
-            owner: "scottcampbell",
-            repoDescription: "A sample app",
-            htmlUrl: "",
-            isPrivate: false,
-            lastUpdated: Date()
-        ))
+        TodoView(
+            viewModel: TodoVM(),
+            repository: Repository(
+                id: 1,
+                name: "MyApp",
+                owner: "scottcampbell",
+                repoDescription: "A sample app",
+                htmlUrl: "",
+                isPrivate: false,
+                lastUpdated: Date()
+            )
+        )
     }
 }

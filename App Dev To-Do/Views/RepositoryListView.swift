@@ -31,7 +31,10 @@ struct RepositoryListView: View {
                 }
                 .navigationTitle("My Repositories")
                 .navigationDestination(for: Repository.self) { repo in
-                    TodoView(repository: repo)
+                    TodoView(
+                        viewModel: viewModel.todoViewModel(for: repo),
+                        repository: repo
+                    )
                 }
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
