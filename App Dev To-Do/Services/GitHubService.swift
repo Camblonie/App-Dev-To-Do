@@ -150,8 +150,8 @@ actor GitHubService {
         return (decodedString, fileResponse.sha)
     }
     
-    /// Create or update TODO.md file in a repository
-    func saveTodoFile(owner: String, repo: String, content: String, sha: String? = nil, retryCount: Int = 1) async throws {
+    /// Create or update TODO.md file in a repository. Returns the new file SHA.
+    func saveTodoFile(owner: String, repo: String, content: String, sha: String? = nil, retryCount: Int = 1) async throws -> String {
         let encodedPath = "TODO.md".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
         let url = URL(string: "\(baseURL)/repos/\(owner)/\(repo)/contents/\(encodedPath)")!
         
@@ -204,14 +204,24 @@ actor GitHubService {
             
             // Retry with merged content and fresh SHA
             let mergedContent = latestTodoFile.toMarkdown()
-            try await saveTodoFile(owner: owner, repo: repo, content: mergedContent, sha: latestSha, retryCount: retryCount - 1)
-            return
+            return try await saveTodoFile(owner: owner, repo: repo, content: mergedContent, sha: latestSha, retryCount: retryCount - 1)
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw GitHubError.httpError(httpResponse.statusCode, message)
         }
+        
+        // Return the new file SHA from the write response
+        struct UpdateResponse: Codable {
+            struct Content: Codable {
+                let sha: String
+            }
+            let content: Content
+        }
+        
+        let updateResponse = try JSONDecoder().decode(UpdateResponse.self, from: data)
+        return updateResponse.content.sha
     }
     
     /// Check if TODO.md file exists in repository

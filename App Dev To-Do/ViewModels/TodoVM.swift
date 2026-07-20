@@ -39,6 +39,9 @@ class TodoVM: ObservableObject {
     private var syncTask: Task<Void, Never>?
     private var needsSync = false
     
+    // Authoritative file SHA from the last successful write; avoids re-fetching after a write
+    private var lastKnownFileSha: String?
+    
     var visibleItems: [TodoItem] {
         if showCompletedTasks {
             return todoFile.items
@@ -79,14 +82,16 @@ class TodoVM: ObservableObject {
         
         Task {
             do {
-                let (content, _) = try await GitHubService.shared.fetchTodoFile(
+                let (content, sha) = try await GitHubService.shared.fetchTodoFile(
                     owner: repo.owner,
                     repo: repo.name
                 )
                 todoFile = TodoFile.fromMarkdown(content)
+                lastKnownFileSha = sha
             } catch GitHubError.fileNotFound {
                 // File doesn't exist yet, start with empty todo file
                 todoFile = TodoFile()
+                lastKnownFileSha = nil
             } catch let error as GitHubError {
                 errorMessage = error.localizedDescription
                 showError = true
@@ -295,26 +300,32 @@ class TodoVM: ObservableObject {
         let idsToResolve = syncingItemIds
         
         do {
-            // Fetch the latest SHA; nil means the file does not exist yet
-            var sha: String? = nil
-            do {
-                let (_, fileSha) = try await GitHubService.shared.fetchTodoFile(
-                    owner: repo.owner,
-                    repo: repo.name
-                )
-                sha = fileSha
-            } catch GitHubError.fileNotFound {
-                sha = nil
+            // Use the authoritative SHA from the last successful write if available.
+            // This avoids a read-after-write race where a fresh fetch returns a stale SHA.
+            var sha = lastKnownFileSha
+            if sha == nil {
+                do {
+                    let (_, fileSha) = try await GitHubService.shared.fetchTodoFile(
+                        owner: repo.owner,
+                        repo: repo.name
+                    )
+                    sha = fileSha
+                } catch GitHubError.fileNotFound {
+                    sha = nil
+                }
             }
             
             // Save the full current local state
             let content = todoFile.toMarkdown()
-            try await GitHubService.shared.saveTodoFile(
+            let newSha = try await GitHubService.shared.saveTodoFile(
                 owner: repo.owner,
                 repo: repo.name,
                 content: content,
                 sha: sha
             )
+            
+            // Cache the new SHA for the next sync
+            lastKnownFileSha = newSha
             
             // Clear the pending sync state for the IDs that were synced
             syncingItemIds.subtract(idsToResolve)
